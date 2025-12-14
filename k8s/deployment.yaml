@@ -1,0 +1,66 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: heart-disease-api-deployment
+  namespace: default
+  labels:
+    app: heart-disease-api
+spec:
+  replicas: 3   # Can scale later; start with 1 for debugging if needed
+  selector:
+    matchLabels:
+      app: heart-disease-api
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 25%
+      maxSurge: 25%
+  template:
+    metadata:
+      labels:
+        app: heart-disease-api
+    spec:
+      containers:
+        - name: heart-disease-api
+          image: us-central1-docker.pkg.dev/lively-nimbus-473407-m9/my-repo/heart-disease-api:latest
+          ports:
+            - containerPort: 8000
+
+          # --------------------------------------------------
+          # Resource Management
+          # --------------------------------------------------
+          resources:
+            requests:
+              cpu: 250m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+
+          # --------------------------------------------------
+          # Health Checks
+          # --------------------------------------------------
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 60
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 5
+
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+
+          # --------------------------------------------------
+          # Image Pull Policy
+          # --------------------------------------------------
+          imagePullPolicy: Always
+
+      restartPolicy: Always

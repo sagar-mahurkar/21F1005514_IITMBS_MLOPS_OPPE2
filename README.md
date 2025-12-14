@@ -13,6 +13,10 @@
 
 - Compute input drift comparing trained data with the generated data used for prediction in the earlier step. (1 mark)
 
+# Factors on which the samples that have heart disease not predicted are most dependent on
+
+- False-negative heart disease predictions mostly depend on mild chest pain, absence of exercise-induced symptoms, low ST depression, zero major vessel blockage, and normal test results — which collectively mislead the model into underestimating risk.
+
 
 # Fairness Comment (Age as Sensitive Attribute)
 
