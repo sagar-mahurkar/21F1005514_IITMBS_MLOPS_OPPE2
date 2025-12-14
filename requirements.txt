@@ -1,1 +1,20 @@
 fairlearn
+# Core data & ML
+numpy
+pandas
+scikit-learn
+joblib
+matplotlib
+
+# Timezone support (used in training/logging)
+tzdata
+
+# DVC + Google Cloud Storage remote
+dvc
+dvc-gs
+
+# MLflow (training, registry, fetching models)
+mlflow
+
+# Testing
+pytest
