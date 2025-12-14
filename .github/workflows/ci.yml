@@ -95,15 +95,36 @@ jobs:
           echo "⚠️ Training failed, continuing pipeline"
 
       # ----------------------------------------------------------
-      # Step 7: Fetch model from MLflow (best effort)
+      # Step 7: Fetch model from MLflow (WAIT + RETRY)
       # ----------------------------------------------------------
-      - name: Fetch model from MLflow
+      - name: Fetch model from MLflow (wait & retry)
         env:
           MLFLOW_TRACKING_URI: http://35.188.33.106:5000
         run: |
-          echo "📥 Fetching model from MLflow (if available)..."
-          python fetch_from_mlflow.py >> train_output.txt 2>&1 || \
-          echo "⚠️ MLflow fetch failed, continuing pipeline"
+          echo "📥 Waiting for MLflow model to be available..."
+      
+          MAX_RETRIES=10
+          SLEEP_SECONDS=15
+          ATTEMPT=1
+      
+          while [ $ATTEMPT -le $MAX_RETRIES ]; do
+            echo "🔄 Attempt $ATTEMPT / $MAX_RETRIES"
+      
+            if python fetch_from_mlflow.py >> train_output.txt 2>&1; then
+              echo "✅ MLflow fetch successful"
+              break
+            else
+              echo "⏳ MLflow not ready yet, retrying in $SLEEP_SECONDS seconds..."
+              sleep $SLEEP_SECONDS
+            fi
+      
+            ATTEMPT=$((ATTEMPT+1))
+          done
+      
+          if [ $ATTEMPT -gt $MAX_RETRIES ]; then
+            echo "⚠️ MLflow model not available after retries, continuing pipeline"
+          fi
+
 
       # ----------------------------------------------------------
       # Step 8: Verify model artifact (local training)
