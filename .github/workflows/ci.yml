@@ -1,5 +1,5 @@
 # ==============================================================
-# GitHub Actions Workflow: Train + Test (Combined)
+# GitHub Actions Workflow: Train + Test + MLflow
 # Heart Disease ML Pipeline
 # ==============================================================
 
@@ -18,6 +18,7 @@ on:
       - "data.csv"
       - "requirements.txt"
       - "artifacts/**"
+      - ".github/workflows/*"
   pull_request:
     branches:
       - "**"
@@ -35,13 +36,14 @@ permissions:
 jobs:
   train_and_test:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
 
     steps:
       # ----------------------------------------------------------
       # Step 1: Checkout repository
       # ----------------------------------------------------------
       - name: Checkout repo
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
@@ -49,7 +51,7 @@ jobs:
       # Step 2: Setup Python
       # ----------------------------------------------------------
       - name: Setup Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: "3.9"
 
@@ -58,6 +60,8 @@ jobs:
       # ----------------------------------------------------------
       - name: Setup CML
         uses: iterative/setup-cml@v2
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
 
       # ----------------------------------------------------------
       # Step 4: Install dependencies
@@ -80,16 +84,29 @@ jobs:
           echo "✅ data.csv found"
 
       # ----------------------------------------------------------
-      # Step 6: Train model
+      # Step 6: Train model (MLflow = best effort)
       # ----------------------------------------------------------
       - name: Train model
+        env:
+          MLFLOW_TRACKING_URI: http://35.188.33.106:5000
         run: |
-          echo "🚀 Training model..."
-          python train.py > train_output.txt 2>&1
-          echo "✅ Training completed"
+          echo "🚀 Training model (MLflow best-effort)..."
+          python train.py > train_output.txt 2>&1 || \
+          echo "⚠️ Training failed, continuing pipeline"
 
       # ----------------------------------------------------------
-      # Step 7: Verify model artifact
+      # Step 7: Fetch model from MLflow (best effort)
+      # ----------------------------------------------------------
+      - name: Fetch model from MLflow
+        env:
+          MLFLOW_TRACKING_URI: http://35.188.33.106:5000
+        run: |
+          echo "📥 Fetching model from MLflow (if available)..."
+          python fetch_from_mlflow.py >> train_output.txt 2>&1 || \
+          echo "⚠️ MLflow fetch failed, continuing pipeline"
+
+      # ----------------------------------------------------------
+      # Step 8: Verify model artifact (local training)
       # ----------------------------------------------------------
       - name: Verify model artifact
         run: |
@@ -101,40 +118,40 @@ jobs:
           echo "✅ Model artifact exists"
 
       # ----------------------------------------------------------
-      # Step 8: Run unit tests
+      # Step 9: Run unit tests (VERBOSE)
       # ----------------------------------------------------------
-      - name: Run tests
+      - name: Run tests (verbose)
         run: |
-          echo "🧪 Running tests..."
-          python test_model.py > test_output.txt 2>&1
+          echo "🧪 Running unit tests..."
+          python -m unittest -v test_model.py > test_output.txt 2>&1
 
       # ----------------------------------------------------------
-      # Step 9: Show logs (debug)
+      # Step 10: Show logs (debug)
       # ----------------------------------------------------------
       - name: Show logs
         run: |
-          echo "===== 🧠 TRAINING LOG ====="
-          cat train_output.txt
+          echo "===== 🧠 TRAINING + MLFLOW LOG ====="
+          cat train_output.txt || true
           echo ""
           echo "===== 🧪 TEST LOG ====="
-          cat test_output.txt
+          cat test_output.txt || true
 
       # ----------------------------------------------------------
-      # Step 10: Publish CML report (PR comment)
+      # Step 11: Publish CML report
       # ----------------------------------------------------------
       - name: Publish CML report
         env:
           REPO_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          echo "## 🧠 Training Output" > report.md
-          echo "\`\`\`" >> report.md
+          echo "## 🧠 Training + MLflow Output" > report.md
+          echo '```' >> report.md
           cat train_output.txt >> report.md
-          echo "\`\`\`" >> report.md
+          echo '```' >> report.md
 
           echo "" >> report.md
-          echo "## 🧪 Test Output" >> report.md
-          echo "\`\`\`" >> report.md
+          echo "## 🧪 Unit Test Output" >> report.md
+          echo '```' >> report.md
           cat test_output.txt >> report.md
-          echo "\`\`\`" >> report.md
+          echo '```' >> report.md
 
           cml comment create --publish report.md
