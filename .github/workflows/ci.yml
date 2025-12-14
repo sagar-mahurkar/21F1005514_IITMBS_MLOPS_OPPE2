@@ -18,6 +18,7 @@ on:
       - "data.csv"
       - "requirements.txt"
       - "artifacts/**"
+      - ".github/workflows/*"
   pull_request:
     branches:
       - "**"
@@ -101,12 +102,12 @@ jobs:
           echo "✅ Model artifact exists"
 
       # ----------------------------------------------------------
-      # Step 8: Run unit tests
+      # Step 8: Run unit tests (VERBOSE)
       # ----------------------------------------------------------
-      - name: Run tests
+      - name: Run tests (verbose)
         run: |
           echo "🧪 Running tests..."
-          python test_model.py > test_output.txt 2>&1
+          python -m unittest -v test_model.py > test_output.txt 2>&1
 
       # ----------------------------------------------------------
       # Step 9: Show logs (debug)
