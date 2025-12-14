@@ -2,8 +2,12 @@ import pandas as pd
 import numpy as np
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import train_test_split, RandomizedSearchCV
+from sklearn.metrics import accuracy_score
+from fairlearn.metrics import MetricFrame, false_negative_rate
 
+# --------------------------------------------------
 # Load data
+# --------------------------------------------------
 df = pd.read_csv("./data.csv")
 
 # Drop missing values
@@ -13,17 +17,32 @@ cleaned_df = df.dropna().copy()
 cleaned_df["gender"] = cleaned_df["gender"].map({"male": 1, "female": 0})
 cleaned_df["target"] = cleaned_df["target"].map({"yes": 1, "no": 0})
 
+# --------------------------------------------------
+# Bucket AGE into 20-year bins (Sensitive attribute)
+# --------------------------------------------------
+cleaned_df["age_group"] = pd.cut(
+    cleaned_df["age"],
+    bins=[0, 20, 40, 60, 80, 100],
+    labels=["0-20", "21-40", "41-60", "61-80", "81+"],
+    right=True
+)
+
+# --------------------------------------------------
 # Split features and target
-X = cleaned_df.drop("target", axis=1)
+# --------------------------------------------------
+X = cleaned_df.drop(["target", "age_group"], axis=1)
 y = cleaned_df["target"]
+age_sensitive = cleaned_df["age_group"]
 
 np.random.seed(42)
 
-X_train, X_test, y_train, y_test = train_test_split(
-    X, y, test_size=0.2
+X_train, X_test, y_train, y_test, age_train, age_test = train_test_split(
+    X, y, age_sensitive, test_size=0.2, random_state=42
 )
 
-# Hyperparameter search
+# --------------------------------------------------
+# Train model with hyperparameter tuning
+# --------------------------------------------------
 log_reg_grid = {
     "C": np.logspace(-4, 4, 20),
     "solver": ["liblinear"]
@@ -41,3 +60,26 @@ rs_log_reg.fit(X_train, y_train)
 
 print("Best params:", rs_log_reg.best_params_)
 print("Test accuracy:", rs_log_reg.score(X_test, y_test))
+
+# --------------------------------------------------
+# Fairness Evaluation using Fairlearn
+# --------------------------------------------------
+y_pred = rs_log_reg.predict(X_test)
+
+metrics = {
+    "accuracy": accuracy_score,
+    "false_negative_rate": false_negative_rate
+}
+
+mf = MetricFrame(
+    metrics=metrics,
+    y_true=y_test,
+    y_pred=y_pred,
+    sensitive_features=age_test
+)
+
+print("\n=== Fairness Metrics by Age Group ===")
+print(mf.by_group)
+
+print("\n=== Overall Metrics ===")
+print(mf.overall)

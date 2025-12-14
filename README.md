@@ -13,3 +13,13 @@
 
 - Compute input drift comparing trained data with the generated data used for prediction in the earlier step. (1 mark)
 
+
+# Fairness Comment (Age as Sensitive Attribute)
+
+- Fairness analysis was performed using Fairlearn with age as the sensitive attribute, bucketed into 20-year age groups.
+
+- The model shows consistent accuracy across all age groups (21–40, 41–60, 61–80), with accuracy values close to the overall performance.
+
+- The false negative rate is 0.0 for all age groups, indicating that the model does not disproportionately fail to detect heart disease for any particular age group.
+
+- Based on these metrics, the model does not exhibit age-based unfairness under the evaluated fairness criteria.
