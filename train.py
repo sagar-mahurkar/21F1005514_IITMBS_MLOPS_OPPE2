@@ -2,10 +2,24 @@ import pandas as pd
 import numpy as np
 import joblib
 from pathlib import Path
+
+import mlflow
+import mlflow.sklearn
+
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import train_test_split, RandomizedSearchCV
 from sklearn.metrics import accuracy_score
 from fairlearn.metrics import MetricFrame, false_negative_rate
+
+# --------------------------------------------------
+# MLflow Configuration
+# --------------------------------------------------
+MLFLOW_TRACKING_URI = "http://35.188.33.106:5000"
+EXPERIMENT_NAME = "heart-disease-experiment"
+REGISTERED_MODEL_NAME = "heart-disease-logistic-regression"
+
+mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
+mlflow.set_experiment(EXPERIMENT_NAME)
 
 # --------------------------------------------------
 # Load data
@@ -58,26 +72,45 @@ rs_log_reg = RandomizedSearchCV(
     verbose=1
 )
 
-rs_log_reg.fit(X_train, y_train)
-
-print("Best params:", rs_log_reg.best_params_)
-print("Test accuracy:", rs_log_reg.score(X_test, y_test))
-
 # --------------------------------------------------
-# Save the trained model (ARTIFACT)
+# MLflow Run (Training + Registration)
 # --------------------------------------------------
-artifacts_dir = Path("artifacts")
-artifacts_dir.mkdir(exist_ok=True)
+with mlflow.start_run(run_name="logistic-regression-heart-disease"):
 
-model_path = artifacts_dir / "model.joblib"
-joblib.dump(rs_log_reg.best_estimator_, model_path)
+    rs_log_reg.fit(X_train, y_train)
 
-print(f"\nModel saved successfully at: {model_path}")
+    best_model = rs_log_reg.best_estimator_
+    test_accuracy = rs_log_reg.score(X_test, y_test)
+
+    print("Best params:", rs_log_reg.best_params_)
+    print("Test accuracy:", test_accuracy)
+
+    # ---- Log parameters & metrics ----
+    mlflow.log_params(rs_log_reg.best_params_)
+    mlflow.log_metric("accuracy", test_accuracy)
+
+    # ---- Save local model artifact ----
+    artifacts_dir = Path("artifacts")
+    artifacts_dir.mkdir(exist_ok=True)
+
+    model_path = artifacts_dir / "model.joblib"
+    joblib.dump(best_model, model_path)
+
+    print(f"\nModel saved successfully at: {model_path}")
+
+    mlflow.log_artifact(str(model_path), artifact_path="local_model")
+
+    # ---- Register model in MLflow ----
+    mlflow.sklearn.log_model(
+        sk_model=best_model,
+        artifact_path="model",
+        registered_model_name=REGISTERED_MODEL_NAME
+    )
 
 # --------------------------------------------------
 # Fairness Evaluation using Fairlearn
 # --------------------------------------------------
-y_pred = rs_log_reg.predict(X_test)
+y_pred = best_model.predict(X_test)
 
 metrics = {
     "accuracy": accuracy_score,
