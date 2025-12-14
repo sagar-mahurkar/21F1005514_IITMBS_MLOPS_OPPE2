@@ -1,0 +1,140 @@
+# ==============================================================
+# GitHub Actions Workflow: Train + Test (Combined)
+# Heart Disease ML Pipeline
+# ==============================================================
+
+name: Train and Test Model
+
+# --------------------------------------------------------------
+# Triggers
+# --------------------------------------------------------------
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - "**"
+    paths:
+      - "**.py"
+      - "data.csv"
+      - "requirements.txt"
+      - "artifacts/**"
+  pull_request:
+    branches:
+      - "**"
+
+# --------------------------------------------------------------
+# Permissions
+# --------------------------------------------------------------
+permissions:
+  contents: write
+  pull-requests: write
+
+# --------------------------------------------------------------
+# Job Definition
+# --------------------------------------------------------------
+jobs:
+  train_and_test:
+    runs-on: ubuntu-latest
+
+    steps:
+      # ----------------------------------------------------------
+      # Step 1: Checkout repository
+      # ----------------------------------------------------------
+      - name: Checkout repo
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      # ----------------------------------------------------------
+      # Step 2: Setup Python
+      # ----------------------------------------------------------
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.9"
+
+      # ----------------------------------------------------------
+      # Step 3: Setup CML
+      # ----------------------------------------------------------
+      - name: Setup CML
+        uses: iterative/setup-cml@v2
+
+      # ----------------------------------------------------------
+      # Step 4: Install dependencies
+      # ----------------------------------------------------------
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      # ----------------------------------------------------------
+      # Step 5: Verify data.csv exists
+      # ----------------------------------------------------------
+      - name: Verify data.csv exists
+        run: |
+          if [ ! -f data.csv ]; then
+            echo "❌ data.csv not found!"
+            ls -R .
+            exit 1
+          fi
+          echo "✅ data.csv found"
+
+      # ----------------------------------------------------------
+      # Step 6: Train model
+      # ----------------------------------------------------------
+      - name: Train model
+        run: |
+          echo "🚀 Training model..."
+          python train.py > train_output.txt 2>&1
+          echo "✅ Training completed"
+
+      # ----------------------------------------------------------
+      # Step 7: Verify model artifact
+      # ----------------------------------------------------------
+      - name: Verify model artifact
+        run: |
+          if [ ! -f artifacts/model.joblib ]; then
+            echo "❌ Model artifact not found!"
+            ls -R .
+            exit 1
+          fi
+          echo "✅ Model artifact exists"
+
+      # ----------------------------------------------------------
+      # Step 8: Run unit tests
+      # ----------------------------------------------------------
+      - name: Run tests
+        run: |
+          echo "🧪 Running tests..."
+          python test_model.py > test_output.txt 2>&1
+
+      # ----------------------------------------------------------
+      # Step 9: Show logs (debug)
+      # ----------------------------------------------------------
+      - name: Show logs
+        run: |
+          echo "===== 🧠 TRAINING LOG ====="
+          cat train_output.txt
+          echo ""
+          echo "===== 🧪 TEST LOG ====="
+          cat test_output.txt
+
+      # ----------------------------------------------------------
+      # Step 10: Publish CML report (PR comment)
+      # ----------------------------------------------------------
+      - name: Publish CML report
+        env:
+          REPO_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "## 🧠 Training Output" > report.md
+          echo "\`\`\`" >> report.md
+          cat train_output.txt >> report.md
+          echo "\`\`\`" >> report.md
+
+          echo "" >> report.md
+          echo "## 🧪 Test Output" >> report.md
+          echo "\`\`\`" >> report.md
+          cat test_output.txt >> report.md
+          echo "\`\`\`" >> report.md
+
+          cml comment create --publish report.md

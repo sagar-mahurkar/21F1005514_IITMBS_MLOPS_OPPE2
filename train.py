@@ -1,5 +1,7 @@
 import pandas as pd
 import numpy as np
+import joblib
+from pathlib import Path
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import train_test_split, RandomizedSearchCV
 from sklearn.metrics import accuracy_score
@@ -60,6 +62,17 @@ rs_log_reg.fit(X_train, y_train)
 
 print("Best params:", rs_log_reg.best_params_)
 print("Test accuracy:", rs_log_reg.score(X_test, y_test))
+
+# --------------------------------------------------
+# Save the trained model (ARTIFACT)
+# --------------------------------------------------
+artifacts_dir = Path("artifacts")
+artifacts_dir.mkdir(exist_ok=True)
+
+model_path = artifacts_dir / "model.joblib"
+joblib.dump(rs_log_reg.best_estimator_, model_path)
+
+print(f"\nModel saved successfully at: {model_path}")
 
 # --------------------------------------------------
 # Fairness Evaluation using Fairlearn
