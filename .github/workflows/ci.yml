@@ -93,28 +93,37 @@ jobs:
           echo "🚀 Training model (MLflow best-effort)..."
           python train.py > train_output.txt 2>&1 || \
           echo "⚠️ Training failed, continuing pipeline"
-
+      
       # ----------------------------------------------------------
-      # Step 7: Fetch model from MLflow (WAIT + RETRY)
+      # Step 7: Wait for MLflow server + Fetch model
       # ----------------------------------------------------------
       - name: Fetch model from MLflow (wait & retry)
         env:
           MLFLOW_TRACKING_URI: http://35.188.33.106:5000
         run: |
-          echo "📥 Waiting for MLflow model to be available..."
+          echo "📥 Waiting for MLflow server..."
       
           MAX_RETRIES=10
           SLEEP_SECONDS=15
           ATTEMPT=1
       
+          # ---- Wait for MLflow HTTP endpoint ----
+          until curl -sf $MLFLOW_TRACKING_URI > /dev/null; do
+            echo "⏳ MLflow server not reachable yet..."
+            sleep 5
+          done
+      
+          echo "✅ MLflow server reachable"
+      
+          # ---- Fetch model with retries ----
           while [ $ATTEMPT -le $MAX_RETRIES ]; do
-            echo "🔄 Attempt $ATTEMPT / $MAX_RETRIES"
+            echo "🔄 Fetch attempt $ATTEMPT / $MAX_RETRIES"
       
             if python fetch_from_mlflow.py >> train_output.txt 2>&1; then
               echo "✅ MLflow fetch successful"
               break
             else
-              echo "⏳ MLflow not ready yet, retrying in $SLEEP_SECONDS seconds..."
+              echo "⏳ Model not registered yet, retrying in $SLEEP_SECONDS seconds..."
               sleep $SLEEP_SECONDS
             fi
       
@@ -122,7 +131,7 @@ jobs:
           done
       
           if [ $ATTEMPT -gt $MAX_RETRIES ]; then
-            echo "⚠️ MLflow model not available after retries, continuing pipeline"
+            echo "⚠️ Model not available in MLflow after retries"
           fi
 
 
