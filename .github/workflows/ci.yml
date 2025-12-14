@@ -118,11 +118,19 @@ jobs:
           echo "✅ Model artifact exists"
 
       # ----------------------------------------------------------
+<<<<<<< HEAD
       # Step 9: Run unit tests (VERBOSE)
       # ----------------------------------------------------------
       - name: Run tests (verbose)
         run: |
           echo "🧪 Running unit tests..."
+=======
+      # Step 8: Run unit tests (VERBOSE)
+      # ----------------------------------------------------------
+      - name: Run tests (verbose)
+        run: |
+          echo "🧪 Running tests..."
+>>>>>>> 2be820f7dab06ebb4948d1e0e3471f5db0b23305
           python -m unittest -v test_model.py > test_output.txt 2>&1
 
       # ----------------------------------------------------------
